@@ -24,13 +24,16 @@ def get_int(url: str) -> int:
 
 
 def download_file(url: str, target_dir: str, filename: str) -> None:
+    print('Download file from:', url)
     assert Path(target_dir).exists()
     assert Path(target_dir).is_dir()
     # todo use a pool to manage download
-    urllib.request.urlretrieve(url, os.path.join(target_dir, filename))
+    print('URL=', url, 'FILE=', os.path.join(target_dir, filename))
+    # urllib.request.urlretrieve(url, os.path.join(target_dir, filename))
 
 
 def download_files_recursive(url: str, target_dir: str) -> None:
+    print('Download folder from:', url)
     if Path(target_dir).exists():
         if Path(target_dir).is_dir():
             pass
@@ -46,33 +49,29 @@ def download_files_recursive(url: str, target_dir: str) -> None:
     for tag in links:
         link = tag.get('href', None)
 
-        if link is not None:
-            if str(link).startswith(url):
-                # is a folder or a file?
-                link_tail = str(link).removeprefix(url)
+        if link is None:
+            continue
+        if not str(link).startswith(url):
+            continue
 
-                if link_tail.count('/') == 0:
-                    # file
-                    download_file(link, target_dir, link_tail)
-                elif link_tail.endswith('/') and link_tail.count('/') == 1:
-                    # folder
-                    download_files_recursive(link, os.path.join(target_dir, link_tail.removesuffix('/')))
-                else:
-                    print("Warning: unrecognized url", link)
+        # is a folder or a file?
+        link_tail = str(link).removeprefix(url)
+        if len(link_tail) == 0:
+            continue
+
+        if link_tail.count('/') == 0:
+            # file
+            download_file(link, target_dir, link_tail)
+        elif link_tail.endswith('/') and link_tail.count('/') == 1:
+            # folder
+            download_files_recursive(link, os.path.join(target_dir, link_tail.removesuffix('/')))
+        else:
+            print("Warning: unrecognized url", link)
 
 
-def download_version(version: str) -> None:
+def download_version(version: str, target_dir: str) -> None:
     # note: `version` can be either a int or the literal string 'version'
-
-    content = get_utf8_str(upstream_server_url + '/update/' + version + '/')
-    soup = BeautifulSoup(content)
-    links = soup.find_all('a')
-
-    for tag in links:
-        link = tag.get('href', None)
-        if link is not None:
-            print(link)
-    pass
+    download_files_recursive(upstream_server_url + '/update/' + version + '/', target_dir)
 
 
 if __name__ == '__main__':
@@ -92,7 +91,7 @@ if __name__ == '__main__':
             if min_version > latest_version or min_version < 0:
                 raise Exception('Unexpected manifest "minversion" field')
 
-    download_version(str(0))
-    download_version('version')
-    for version in range(min_version, latest_version + 1):
-        download_version(str(version))
+    download_version(str(0), './test/')
+    download_version('version', './test/')
+    download_version(str(min_version), './test/')
+    download_version(str(latest_version), './test/')
