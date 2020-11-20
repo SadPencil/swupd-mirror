@@ -1,2 +1,6 @@
+pip>=20.2.4
+wheel>=0.35.1
+setuptools>=39.0.1
 beautifulsoup4>=4.9.3
 requests>=2.25.0
+gevent>=20.9.0
