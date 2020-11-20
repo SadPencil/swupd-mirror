@@ -42,13 +42,14 @@ def get_files_list_recursive(url: str, target_dir: str) -> list:
     files_list = []
 
     logging.log(logging.INFO, 'Download folder from:' + url)
-    if pathlib.Path(target_dir).exists():
-        if pathlib.Path(target_dir).is_dir():
-            pass
-        else:
-            raise Exception(target_dir + ' is supposed to be a directory, not something else')
-    else:
-        os.makedirs(target_dir)
+
+    # if pathlib.Path(target_dir).exists():
+    #     if pathlib.Path(target_dir).is_dir():
+    #         pass
+    #     else:
+    #         raise Exception(target_dir + ' is supposed to be a directory, not something else')
+    # else:
+    #     os.makedirs(target_dir)
 
     content = get_utf8_str(url)
     soup = BeautifulSoup(content, features="html.parser")
@@ -90,10 +91,10 @@ def download_version(version: str, target_dir: str) -> list:
 
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.DEBUG, format="%(levelname)s: %(message)s")
 
     latest_version = get_int(upstream_server_url + '/latest')
-    print("latest version:", latest_version)
+    logging.log(logging.INFO, "latest version:" + str(latest_version))
 
     manifest = get_utf8_str(upstream_server_url + '/update/' + str(latest_version) + '/Manifest.MoM')
     min_version = 0
