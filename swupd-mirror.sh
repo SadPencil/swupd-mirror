@@ -15,7 +15,7 @@ manifest="$(curl -- "$upstream_server_url"/update/"$latest_version"/Manifest.MoM
 version=$(( "$(echo "$manifest" | grep "^version:" | head -n 1 | awk -F ':' '{print $2}')" ))
 minversion=$(( "$(echo "$manifest" | grep "^minversion:" | head -n 1 | awk -F ':' '{print $2}')" ))
 
-[ "$version" = "$latest_version" ] || ( echo "Version mismatch. " 1>&2 ; exit 1 )
+[ "$version" = "$latest_version" ] || ( echo "version mismatch. " 1>&2 ; exit 1 ) || exit 1
 echo "min version: $minversion"
 unset manifest
 unset version
