@@ -1,3 +1,5 @@
+import logging
+import requests
 import urllib.request
 from bs4 import BeautifulSoup
 import os
@@ -6,12 +8,14 @@ import urllib
 
 upstream_server_url = 'https://cdn.download.clearlinux.org'
 
+_session = requests.Session()
+
 
 def get_content(url: str) -> bytes:
-    response = urllib.request.urlopen(url)
-    if response.status != 200:
-        raise Exception('HTTP status code {}'.format(response.status))
-    return response.read()
+    response = _session.get(url)
+    if response.status_code != 200:
+        raise Exception('HTTP status code {}'.format(response.status_code))
+    return response.content
 
 
 def get_utf8_str(url: str) -> str:
@@ -24,17 +28,20 @@ def get_int(url: str) -> int:
     return int(content)
 
 
-def download_file(url: str, target_dir: str, filename: str) -> None:
-    print('Download file from:', url)
-    assert pathlib.Path(target_dir).exists()
-    assert pathlib.Path(target_dir).is_dir()
-    # todo use a pool to manage download
-    print('URL=', url, 'FILE=', os.path.join(target_dir, filename))
-    # urllib.request.urlretrieve(url, os.path.join(target_dir, filename))
+def get_file_list(url: str, target_dir: str, filename: str) -> tuple:
+    return url, target_dir, filename
+
+    # assert pathlib.Path(target_dir).exists()
+    # assert pathlib.Path(target_dir).is_dir()
+    # # todo use a pool to manage download
+    # print('URL=', url, 'FILE=', os.path.join(target_dir, filename))
+    # # urllib.request.urlretrieve(url, os.path.join(target_dir, filename))
 
 
-def download_files_recursive(url: str, target_dir: str) -> None:
-    print('Download folder from:', url)
+def get_files_list_recursive(url: str, target_dir: str) -> list:
+    files_list = []
+
+    logging.log(logging.INFO, 'Download folder from:' + url)
     if pathlib.Path(target_dir).exists():
         if pathlib.Path(target_dir).is_dir():
             pass
@@ -65,20 +72,25 @@ def download_files_recursive(url: str, target_dir: str) -> None:
             continue
         if link_tail.count('/') == 0:
             # file
-            download_file(link, target_dir, link_tail)
+            files_list_item = get_file_list(link, target_dir, link_tail)
+            files_list.append(files_list_item)
         elif link_tail.endswith('/') and link_tail.count('/') == 1:
             # folder
-            download_files_recursive(link, os.path.join(target_dir, link_tail.removesuffix('/')))
+            files_list_sub = get_files_list_recursive(link, os.path.join(target_dir, link_tail.removesuffix('/')))
+            files_list.extend(files_list_sub)
         else:
-            print("Warning: unrecognized url", link)
+            logging.log(logging.WARN, 'Warning: unrecognized url:' + link)
+
+    return files_list
 
 
-def download_version(version: str, target_dir: str) -> None:
+def download_version(version: str, target_dir: str) -> list:
     # note: `version` can be either a int or the literal string 'version'
-    download_files_recursive(upstream_server_url + '/update/' + version + '/', target_dir)
+    return get_files_list_recursive(upstream_server_url + '/update/' + version + '/', target_dir)
 
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.DEBUG)
 
     latest_version = get_int(upstream_server_url + '/latest')
     print("latest version:", latest_version)
@@ -95,7 +107,18 @@ if __name__ == '__main__':
             if min_version > latest_version or min_version < 0:
                 raise Exception('Unexpected manifest "minversion" field')
 
-    download_version(str(0), './test/')
-    download_version('version', './test/')
-    download_version(str(min_version), './test/')
-    download_version(str(latest_version), './test/')
+    files_list = []
+    files_list.extend(
+        download_version(str(0), './test/')
+    )
+    files_list.extend(
+        download_version('version', './test/')
+    )
+    files_list.extend(
+        download_version(str(min_version), './test/')
+    )
+    files_list.extend(
+        download_version(str(latest_version), './test/')
+    )
+
+    logging.log(logging.INFO, str(len(files_list)) + ' files to be downloaded.')
