@@ -11,6 +11,12 @@ upstream_server_url = 'https://cdn.download.clearlinux.org'
 _session = requests.Session()
 
 
+def remove_prefix(s: str, prefix: str) -> str:
+    if not s.startswith(prefix):
+        return s
+    return s[len(prefix):]
+
+
 def http_get_content(url: str) -> bytes:
     response = _session.get(url)
     if response.status_code != 200:
@@ -70,7 +76,7 @@ def get_files_list_recursive(url: str, target_dir: str) -> list:
             continue
 
         # is a folder or a file?
-        link_tail = str(link).removeprefix(url)
+        link_tail = remove_prefix(str(link), url)
         if len(link_tail) == 0:
             continue
         if link_tail.count('/') == 0:
@@ -102,13 +108,15 @@ if __name__ == '__main__':
     min_version = 0
     for line in manifest.split('\n'):
         if line.startswith('version:'):
-            version = int(line.removeprefix('version:'))
+            version = int(remove_prefix(line, 'version:'))
             if version != latest_version:
                 raise Exception('Unexpected manifest "version" field')
         elif line.startswith('minversion:'):
-            min_version = int(line.removeprefix('minversion:'))
+            min_version = int(remove_prefix(line, 'minversion:'))
             if min_version > latest_version or min_version < 0:
                 raise Exception('Unexpected manifest "minversion" field')
+
+    logging.info("min verion:" + str(min_version))
 
     files_list = []
     files_list.extend(
