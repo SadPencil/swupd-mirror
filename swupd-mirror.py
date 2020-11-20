@@ -11,20 +11,22 @@ upstream_server_url = 'https://cdn.download.clearlinux.org'
 _session = requests.Session()
 
 
-def get_content(url: str) -> bytes:
+def http_get_content(url: str) -> bytes:
     response = _session.get(url)
     if response.status_code != 200:
         raise Exception('HTTP status code {}'.format(response.status_code))
     return response.content
 
 
-def get_utf8_str(url: str) -> str:
-    content = get_content(url)
-    return content.decode('utf-8')
+def http_get_str(url: str) -> str:
+    response = _session.get(url)
+    if response.status_code != 200:
+        raise Exception('HTTP status code {}'.format(response.status_code))
+    return response.text
 
 
-def get_int(url: str) -> int:
-    content = get_utf8_str(url)
+def http_get_int(url: str) -> int:
+    content = http_get_str(url)
     return int(content)
 
 
@@ -51,7 +53,7 @@ def get_files_list_recursive(url: str, target_dir: str) -> list:
     # else:
     #     os.makedirs(target_dir)
 
-    content = get_utf8_str(url)
+    content = http_get_str(url)
     soup = BeautifulSoup(content, features="html.parser")
     links = soup.find_all('a')
 
@@ -93,10 +95,10 @@ def download_version(version: str, target_dir: str) -> list:
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG, format="%(levelname)s: %(message)s")
 
-    latest_version = get_int(upstream_server_url + '/latest')
+    latest_version = http_get_int(upstream_server_url + '/latest')
     logging.info("latest version:" + str(latest_version))
 
-    manifest = get_utf8_str(upstream_server_url + '/update/' + str(latest_version) + '/Manifest.MoM')
+    manifest = http_get_str(upstream_server_url + '/update/' + str(latest_version) + '/Manifest.MoM')
     min_version = 0
     for line in manifest.split('\n'):
         if line.startswith('version:'):
