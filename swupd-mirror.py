@@ -41,7 +41,7 @@ def get_file_list(url: str, target_dir: str, filename: str) -> tuple:
 def get_files_list_recursive(url: str, target_dir: str) -> list:
     files_list = []
 
-    logging.log(logging.INFO, 'Download folder from:' + url)
+    logging.info('Download folder from:' + url)
 
     # if pathlib.Path(target_dir).exists():
     #     if pathlib.Path(target_dir).is_dir():
@@ -80,7 +80,7 @@ def get_files_list_recursive(url: str, target_dir: str) -> list:
             files_list_sub = get_files_list_recursive(link, os.path.join(target_dir, link_tail.removesuffix('/')))
             files_list.extend(files_list_sub)
         else:
-            logging.log(logging.WARN, 'Warning: unrecognized url:' + link)
+            logging.warning('Warning: unrecognized url:' + link)
 
     return files_list
 
@@ -94,7 +94,7 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG, format="%(levelname)s: %(message)s")
 
     latest_version = get_int(upstream_server_url + '/latest')
-    logging.log(logging.INFO, "latest version:" + str(latest_version))
+    logging.info("latest version:" + str(latest_version))
 
     manifest = get_utf8_str(upstream_server_url + '/update/' + str(latest_version) + '/Manifest.MoM')
     min_version = 0
@@ -122,4 +122,4 @@ if __name__ == '__main__':
         download_version(str(latest_version), './test/')
     )
 
-    logging.log(logging.INFO, str(len(files_list)) + ' files to be downloaded.')
+    logging.info(str(len(files_list)) + ' files to be downloaded.')
