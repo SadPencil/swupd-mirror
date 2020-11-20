@@ -8,7 +8,7 @@ _version=v0.1
 echo "swupd-mirror $_version"
 echo "get the metadata from the upstream server..."
 
-latest_version=$( curl -- "$upstream_server_url"/latest | sed -e 's/^[[:space:]]*//g' -e 's/[[:space:]]*$//g' )
+latest_version=$( curl -- "$upstream_server_url"/update/version/latest_version | sed -e 's/^[[:space:]]*//g' -e 's/[[:space:]]*$//g' )
 [[ "$latest_version" == ?(-)+([0-9]) ]] || ( echo "unexpected content: latest_version is not a number." 1>&2 ; exit 1 ) || exit 1
 echo "latest version: $latest_version"
 
