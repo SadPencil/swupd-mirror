@@ -41,7 +41,7 @@ for name in "${names[@]}"; do
     --reject "index.html" \
     --report-speed=bits \
     --continue \
-    --process=bar \
+    --progress=bar \
     --timestamping \
     --timeout=30 \
     --wait=30 \
