@@ -1,7 +1,8 @@
 import urllib.request
 from bs4 import BeautifulSoup
 import os
-from pathlib import Path
+import pathlib
+import urllib
 
 upstream_server_url = 'https://cdn.download.clearlinux.org'
 
@@ -25,8 +26,8 @@ def get_int(url: str) -> int:
 
 def download_file(url: str, target_dir: str, filename: str) -> None:
     print('Download file from:', url)
-    assert Path(target_dir).exists()
-    assert Path(target_dir).is_dir()
+    assert pathlib.Path(target_dir).exists()
+    assert pathlib.Path(target_dir).is_dir()
     # todo use a pool to manage download
     print('URL=', url, 'FILE=', os.path.join(target_dir, filename))
     # urllib.request.urlretrieve(url, os.path.join(target_dir, filename))
@@ -34,8 +35,8 @@ def download_file(url: str, target_dir: str, filename: str) -> None:
 
 def download_files_recursive(url: str, target_dir: str) -> None:
     print('Download folder from:', url)
-    if Path(target_dir).exists():
-        if Path(target_dir).is_dir():
+    if pathlib.Path(target_dir).exists():
+        if pathlib.Path(target_dir).is_dir():
             pass
         else:
             raise Exception(target_dir + ' is supposed to be a directory, not something else')
@@ -43,14 +44,18 @@ def download_files_recursive(url: str, target_dir: str) -> None:
         os.makedirs(target_dir)
 
     content = get_utf8_str(url)
-    soup = BeautifulSoup(content)
+    soup = BeautifulSoup(content, features="html.parser")
     links = soup.find_all('a')
 
     for tag in links:
         link = tag.get('href', None)
-
         if link is None:
             continue
+
+        # possible relative url -> absolute url
+        link = urllib.parse.urljoin(url, link)
+
+        # no parent
         if not str(link).startswith(url):
             continue
 
@@ -58,7 +63,6 @@ def download_files_recursive(url: str, target_dir: str) -> None:
         link_tail = str(link).removeprefix(url)
         if len(link_tail) == 0:
             continue
-
         if link_tail.count('/') == 0:
             # file
             download_file(link, target_dir, link_tail)
