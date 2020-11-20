@@ -11,6 +11,12 @@ upstream_server_url = 'https://cdn.download.clearlinux.org'
 _session = requests.Session()
 
 
+def remove_suffix(s: str, suffix: str) -> str:
+    if not s.endswith(suffix):
+        return s
+    return s[:-len(suffix)]
+
+
 def remove_prefix(s: str, prefix: str) -> str:
     if not s.startswith(prefix):
         return s
@@ -85,7 +91,7 @@ def get_files_list_recursive(url: str, target_dir: str) -> list:
             files_list.append(files_list_item)
         elif link_tail.endswith('/') and link_tail.count('/') == 1:
             # folder
-            files_list_sub = get_files_list_recursive(link, os.path.join(target_dir, link_tail.removesuffix('/')))
+            files_list_sub = get_files_list_recursive(link, os.path.join(target_dir, remove_suffix(link_tail, '/')))
             files_list.extend(files_list_sub)
         else:
             logging.warning('Warning: unrecognized url:' + link)
