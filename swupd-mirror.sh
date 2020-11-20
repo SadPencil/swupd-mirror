@@ -44,7 +44,6 @@ for name in "${names[@]}"; do
     --progress=bar \
     --timestamping \
     --timeout=30 \
-    --wait=30 \
     --retry-connrefused \
     --unlink \
     "$upstream_server_url"/update/"$name"/
