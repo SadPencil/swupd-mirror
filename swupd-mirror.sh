@@ -6,21 +6,21 @@ upstream_server_url="https://cdn.download.clearlinux.org"
 
 _version=v0.1
 echo "swupd-mirror $_version"
-echo "Get the metadata from the upstream server..."
+echo "get the metadata from the upstream server..."
 
 latest_version=$(( "$(curl -- "$upstream_server_url"/latest)" ))
-echo "Latest version: $latest_version"
+echo "latest version: $latest_version"
 
 manifest="$(curl -- "$upstream_server_url"/update/"$latest_version"/Manifest.MoM)"
 version=$(( "$(echo "$manifest" | grep "^version:" | head -n 1 | awk -F ':' '{print $2}')" ))
 minversion=$(( "$(echo "$manifest" | grep "^minversion:" | head -n 1 | awk -F ':' '{print $2}')" ))
 
 [ "$version" = "$latest_version" ] || ( echo "Version mismatch. " 1>&2 ; exit 1 )
-echo "Min version: $minversion"
+echo "min version: $minversion"
 unset manifest
 unset version
 
-echo "Downloading files..."
+echo "download files..."
 
 cd -- "$target_dir"
 
