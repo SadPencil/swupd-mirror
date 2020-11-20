@@ -33,5 +33,19 @@ cd -- "$target_dir"
 names=(0 version "$latest_version" "$minversion")
 
 for name in "${names[@]}"; do
-  wget --no-verbose --no-parent --recursive --no-host-directories -erobots=off --reject "index.html" "$upstream_server_url"/update/"$name"/
+  wget --no-verbose \
+    --no-parent \
+    --recursive \
+    --no-host-directories \
+    -e robots=off \
+    --reject "index.html" \
+    --report-speed=bits \
+    --continue \
+    --process=bar \
+    --timestamping \
+    --timeout=30 \
+    --wait=30 \
+    --retry-connrefused \
+    --unlink \
+    "$upstream_server_url"/update/"$name"/
 done
