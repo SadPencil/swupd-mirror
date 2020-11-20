@@ -9,7 +9,7 @@ echo "swupd-mirror $_version"
 echo "Get the metadata from the upstream server..."
 
 latest_version=$(( "$(curl -- "$upstream_server_url"/latest)" ))
-echo "Lastest version: $latest_version"
+echo "Latest version: $latest_version"
 
 manifest="$(curl -- "$upstream_server_url"/update/"$latest_version"/Manifest.MoM)"
 version=$(( "$(echo "$manifest" | grep "^version:" | head -n 1 | awk -F ':' '{print $2}')" ))
