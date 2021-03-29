@@ -1,3 +1,4 @@
+import argparse
 import logging
 import requests
 import urllib.request
@@ -5,10 +6,15 @@ from bs4 import BeautifulSoup
 import os
 import pathlib
 import urllib
+import sys
+import time
+
+from concurrent.futures import ThreadPoolExecutor
 
 upstream_server_url = 'https://cdn.download.clearlinux.org'
 
 _session = requests.Session()
+
 
 
 def remove_suffix(s: str, suffix: str) -> str:
@@ -104,7 +110,33 @@ def download_version(version: str, target_dir: str) -> list:
     return get_files_list_recursive(upstream_server_url + '/update/' + version + '/', target_dir)
 
 
+def download_with_wget(target_link: list,download_count: int):
+    for i in range(2):
+        # 
+        if(os.system("wget -q --no-cache --limit-rate=2m -t 3 -N --directory-prefix "+str(target_link[1])+" "+str(target_link[0]))==0):
+            break
+    print(download_count)
+
+def download_with_wget2(target_link: list,download_count: int):
+    for i in range(2):
+        # 
+        if(os.system("wget2 -q --no-cache --limit-rate=2m -t 3 -N --directory-prefix "+str(target_link[1])+" "+str(target_link[0]))==0):
+            break
+    print(download_count)
+
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--out', '-o', action='store',
+                    dest='download_dir',
+                    help=('directory you want download to. default:\'./\''),
+                    default='./',
+                    type=pathlib.Path)
+    parser.add_argument('--use-wget2', action='store_true',
+                    dest='use_wget2',
+                    help=('use wget2 to download.'),
+                    default=False)
+    args=parser.parse_args()
+
     logging.basicConfig(level=logging.DEBUG, format="%(levelname)s: %(message)s")
 
     latest_version = http_get_int(upstream_server_url + '/latest')
@@ -126,16 +158,34 @@ if __name__ == '__main__':
 
     files_list = []
     files_list.extend(
-        download_version(str(0), './test/')
+        download_version(str(0), str(args.download_dir)+'/update/'+str(0)+'/')
     )
     files_list.extend(
-        download_version('version', './test/')
+        download_version('version', str(args.download_dir)+'/update/version/')
     )
     files_list.extend(
-        download_version(str(min_version), './test/')
+        download_version(str(min_version), str(args.download_dir)+'/update/'+str(min_version)+'/')
     )
     files_list.extend(
-        download_version(str(latest_version), './test/')
+        download_version(str(latest_version), str(args.download_dir)+'/update/'+str(latest_version)+'/')
     )
 
     logging.info(str(len(files_list)) + ' files to be downloaded.')
+    time.sleep(3)
+
+    #for link in files_list:
+    #    print(link)
+    
+    download_count=0
+    with ThreadPoolExecutor(24) as executor: # the number here is the threads count
+        if(args.use_wget2):
+            for link in files_list:
+                download_count+=1
+                executor.submit(download_with_wget2,link,download_count)
+        else:
+            for link in files_list:
+                download_count+=1
+                executor.submit(download_with_wget,link,download_count)
+
+     
+
