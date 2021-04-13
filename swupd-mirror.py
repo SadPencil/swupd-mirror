@@ -15,7 +15,7 @@ upstream_server_url = 'https://cdn.download.clearlinux.org'
 upstream_server_host = 'cdn.download.clearlinux.org'
 upstream_server_port = 443
 
-# TODO make these variables as command line arguments
+# TODO make these variables as command line arguments with default values
 chunk_size = 1048576
 max_thread = 24
 retry_count = 3
