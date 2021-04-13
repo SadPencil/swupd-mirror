@@ -175,8 +175,8 @@ if __name__ == '__main__':
 
     parser.add_argument(
         '--verbose', '-v',
-        action='store_false',
-        dest='no_verbose',
+        action='store_true',
+        dest='verbose',
         help='verbose mode',
     )
 
@@ -185,7 +185,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     logging.basicConfig(
-        level=logging.INFO if args.no_verbose else logging.DEBUG,
+        level=logging.DEBUG if args.verbose else logging.INFO,
         format="%(levelname)s: %(message)s",
     )
 
