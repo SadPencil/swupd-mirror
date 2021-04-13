@@ -165,7 +165,8 @@ def download_file(target_link: Tuple[str, str, str], skip_on_exists: bool = True
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '--out', '-o', action='store',
+        '--out', '-o',
+        action='store',
         dest='download_dir',
         help='the destination directory',
         required=True,
@@ -173,19 +174,18 @@ if __name__ == '__main__':
     )
 
     parser.add_argument(
-        '--verbose', '-v', action='store',
-        dest='verbose',
+        '--verbose', '-v',
+        action='store_false',
+        dest='no_verbose',
         help='verbose mode',
-        required=False,
-        default=False,
-        type=bool,
     )
 
     # TODO add other parameters
 
     args = parser.parse_args()
+
     logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
+        level=logging.INFO if args.no_verbose else logging.DEBUG,
         format="%(levelname)s: %(message)s",
     )
 
