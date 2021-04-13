@@ -8,13 +8,13 @@ import pathlib
 import urllib
 import sys
 import time
+from typing import List, Tuple
 
 from concurrent.futures import ThreadPoolExecutor
 
 upstream_server_url = 'https://cdn.download.clearlinux.org'
 
 _session = requests.Session()
-
 
 
 def remove_suffix(s: str, suffix: str) -> str:
@@ -48,28 +48,14 @@ def http_get_int(url: str) -> int:
     return int(content)
 
 
-def get_file_list(url: str, target_dir: str, filename: str) -> tuple:
+def get_file_list(url: str, target_dir: str, filename: str) -> Tuple[str, str, str]:
     return url, target_dir, filename
 
-    # assert pathlib.Path(target_dir).exists()
-    # assert pathlib.Path(target_dir).is_dir()
-    # # todo use a pool to manage download
-    # print('URL=', url, 'FILE=', os.path.join(target_dir, filename))
-    # # urllib.request.urlretrieve(url, os.path.join(target_dir, filename))
 
-
-def get_files_list_recursive(url: str, target_dir: str) -> list:
+def get_files_list_recursive(url: str, target_dir: str) -> List[Tuple[str, str, str]]:
     files_list = []
 
-    logging.info('Download folder from:' + url)
-
-    # if pathlib.Path(target_dir).exists():
-    #     if pathlib.Path(target_dir).is_dir():
-    #         pass
-    #     else:
-    #         raise Exception(target_dir + ' is supposed to be a directory, not something else')
-    # else:
-    #     os.makedirs(target_dir)
+    logging.info('Retrieving file list from folder: ' + url)
 
     content = http_get_text(url)
     soup = BeautifulSoup(content, features="html.parser")
@@ -100,42 +86,45 @@ def get_files_list_recursive(url: str, target_dir: str) -> list:
             files_list_sub = get_files_list_recursive(link, os.path.join(target_dir, remove_suffix(link_tail, '/')))
             files_list.extend(files_list_sub)
         else:
-            logging.warning('Warning: unrecognized url:' + link)
+            logging.warning('Warning: ignored unrecognized url: ' + link)
 
     return files_list
 
 
-def download_version(version: str, target_dir: str) -> list:
-    # note: `version` can be either a int or the literal string 'version'
+def get_files_list_of_version(version: str, target_dir: str) -> List[Tuple[str, str, str]]:
+    # note: `version` can be either an integer string or the literal string 'version'
     return get_files_list_recursive(upstream_server_url + '/update/' + version + '/', target_dir)
 
 
-def download_with_wget(target_link: list,download_count: int):
-    for i in range(2):
-        # 
-        if(os.system("wget -q --no-cache --limit-rate=2m -t 3 -N --directory-prefix "+str(target_link[1])+" "+str(target_link[0]))==0):
-            break
-    print(download_count)
+def download_with_wget(target_link: Tuple[str, str, str], retry_count: int = 3, display_message: str = '') -> bool:
+    if len(display_message) != 0:
+        logging.info(display_message)
 
-def download_with_wget2(target_link: list,download_count: int):
-    for i in range(2):
-        # 
-        if(os.system("wget2 -q --no-cache --limit-rate=2m -t 3 -N --directory-prefix "+str(target_link[1])+" "+str(target_link[0]))==0):
-            break
-    print(download_count)
+    for _ in range(retry_count):
+        # TODO escape the url and the folder path
+        exit_code = os.system(
+            "wget -q --no-cache --limit-rate=2m -t 3 -N --directory-prefix " + str(target_link[1]) + " " + str(
+                target_link[0]))
+        if exit_code == 0:
+            return True
+        else:
+            logging.warning("Warning: failed to download file at: " + target_link[1] + ", retrying...")
+    raise Exception("Failed to download file at: " + target_link[1])
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--out', '-o', action='store',
-                    dest='download_dir',
-                    help=('directory you want download to. default:\'./\''),
-                    default='./',
-                    type=pathlib.Path)
-    parser.add_argument('--use-wget2', action='store_true',
-                    dest='use_wget2',
-                    help=('use wget2 to download.'),
-                    default=False)
-    args=parser.parse_args()
+                        dest='download_dir',
+                        help='the destination directory',
+                        required=True,
+                        type=pathlib.Path)
+
+    # TODO add number of thread count
+    # TODO add retry times
+    # TODO add arg upstream server
+
+    args = parser.parse_args()
 
     logging.basicConfig(level=logging.DEBUG, format="%(levelname)s: %(message)s")
 
@@ -154,38 +143,39 @@ if __name__ == '__main__':
             if min_version > latest_version or min_version < 0:
                 raise Exception('Unexpected manifest "minversion" field')
 
-    logging.info("min verion:" + str(min_version))
+    logging.info("min version:" + str(min_version))
+
+    time.sleep(3)
 
     files_list = []
     files_list.extend(
-        download_version(str(0), str(args.download_dir)+'/update/'+str(0)+'/')
+        get_files_list_of_version(str(0), str(args.download_dir) + '/update/' + str(0) + '/')
     )
     files_list.extend(
-        download_version('version', str(args.download_dir)+'/update/version/')
+        get_files_list_of_version('version', str(args.download_dir) + '/update/version/')
     )
     files_list.extend(
-        download_version(str(min_version), str(args.download_dir)+'/update/'+str(min_version)+'/')
+        get_files_list_of_version(str(min_version), str(args.download_dir) + '/update/' + str(min_version) + '/')
     )
     files_list.extend(
-        download_version(str(latest_version), str(args.download_dir)+'/update/'+str(latest_version)+'/')
+        get_files_list_of_version(str(latest_version), str(args.download_dir) + '/update/' + str(latest_version) + '/')
     )
 
-    logging.info(str(len(files_list)) + ' files to be downloaded.')
+    files_count = len(files_list)
+    logging.info(str(files_count) + ' files to be downloaded.')
+
     time.sleep(3)
 
-    #for link in files_list:
-    #    print(link)
-    
-    download_count=0
-    with ThreadPoolExecutor(24) as executor: # the number here is the threads count
-        if(args.use_wget2):
-            for link in files_list:
-                download_count+=1
-                executor.submit(download_with_wget2,link,download_count)
-        else:
-            for link in files_list:
-                download_count+=1
-                executor.submit(download_with_wget,link,download_count)
+    retry_count = 3
+    worker_count = 42
 
-     
+    with ThreadPoolExecutor(max_workers=worker_count) as executor:
+        for i in range(files_count):
+            future = executor.submit(
+                download_with_wget,
+                files_list[i],
+                retry_count=retry_count,
+                display_message='Downloading, {} of {}'.format(i, files_count)
+            )
 
+    # TODO handle SIGINT and SIGTERM
