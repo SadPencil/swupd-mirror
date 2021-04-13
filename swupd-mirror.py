@@ -123,10 +123,13 @@ def get_files_list_recursive(
 
 def get_files_list_of_version(
         version: str,
-        target_dir: str,
+        target_root_dir: str,
         executor: ThreadPoolExecutor = None) -> List[Tuple[str, str, str]]:
     # note: `version` can be either an integer string or the literal string 'version'
-    return get_files_list_recursive(upstream_server_url + '/update/' + version + '/', target_dir, executor=executor)
+    return get_files_list_recursive(
+        upstream_server_url + '/update/' + version + '/',
+        target_root_dir + '/update/' + version + '/',
+        executor=executor)
 
 
 def download_file(target_link: Tuple[str, str, str], skip_on_exists: bool = True, display_message: str = '') -> None:
@@ -226,25 +229,25 @@ if __name__ == '__main__':
         files_list.extend(
             get_files_list_of_version(
                 str(0),
-                str(args.download_dir) + '/update/' + str(0) + '/',
+                str(args.download_dir),
                 executor=executor)
         )
         files_list.extend(
             get_files_list_of_version(
                 'version',
-                str(args.download_dir) + '/update/version/',
+                str(args.download_dir),
                 executor=executor)
         )
         files_list.extend(
             get_files_list_of_version(
                 str(min_version),
-                str(args.download_dir) + '/update/' + str(min_version) + '/',
+                str(args.download_dir),
                 executor=executor)
         )
         files_list.extend(
             get_files_list_of_version(
                 str(latest_version),
-                str(args.download_dir) + '/update/' + str(latest_version) + '/',
+                str(args.download_dir),
                 executor=executor)
         )
 
