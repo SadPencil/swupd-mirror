@@ -211,30 +211,18 @@ if __name__ == '__main__':
     files_list = []
 
     with ThreadPoolExecutor(max_workers=max_thread) as executor:
-        files_list.extend(
-            get_files_list_of_version(
-                str(0),
+        futures = []
+
+        for version in (str(0), 'version', str(min_version), str(latest_version)):
+            futures.append(executor.submit(
+                get_files_list_of_version,
+                version,
                 str(args.download_dir),
-                executor=executor)
-        )
-        files_list.extend(
-            get_files_list_of_version(
-                'version',
-                str(args.download_dir),
-                executor=executor)
-        )
-        files_list.extend(
-            get_files_list_of_version(
-                str(min_version),
-                str(args.download_dir),
-                executor=executor)
-        )
-        files_list.extend(
-            get_files_list_of_version(
-                str(latest_version),
-                str(args.download_dir),
-                executor=executor)
-        )
+                executor=executor,
+            ))
+
+        for future in as_completed(futures):
+            files_list.extend(future.result())
 
     files_count = len(files_list)
     logging.info(str(files_count) + ' files to be downloaded.')
