@@ -90,7 +90,7 @@ def get_files_list_recursive(
         if not str(link).startswith(url):
             continue
 
-        # is a folder or a file?
+        # is it a folder or a file?
         link_tail = remove_prefix(str(link), url)
         if len(link_tail) == 0:
             continue
