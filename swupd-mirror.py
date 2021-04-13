@@ -15,11 +15,14 @@ upstream_server_url = 'https://cdn.download.clearlinux.org'
 upstream_server_host = 'cdn.download.clearlinux.org'
 upstream_server_port = 443
 
+chunk_size = 1048576
+max_thread = 24
+
 http = urllib3.HTTPSConnectionPool(
     host=upstream_server_host,
     port=upstream_server_port,
     timeout=10,
-    maxsize=24,
+    maxsize=max_thread,
     retries=3,
     block=True,
 )
@@ -139,7 +142,7 @@ def download_file(target_link: Tuple[str, str, str], display_message: str = '') 
 
     with open(os.path.join(target_dir, filename), 'wb') as file:
         with http.request('GET', url, preload_content=False) as request:
-            for chunk in request.stream(1048576):
+            for chunk in request.stream(chunk_size):
                 file.write(chunk)
             request.release_conn()
 
@@ -164,10 +167,11 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '--out', '-o', action='store',
-        dest='download_dir',
+        dest='dir',
         help='the destination directory',
         required=True,
-        type=pathlib.Path)
+        type=pathlib.Path,
+    )
 
     # TODO add number of thread count
     # TODO add retry times
@@ -198,7 +202,7 @@ if __name__ == '__main__':
 
     files_list = []
 
-    with ThreadPoolExecutor(max_workers=24) as executor:
+    with ThreadPoolExecutor(max_workers=max_thread) as executor:
         files_list.extend(
             get_files_list_of_version(
                 str(0),
@@ -231,7 +235,7 @@ if __name__ == '__main__':
 
     # TODO feature: extract, other than download a file if the corresponding .gz file exists
 
-    with ThreadPoolExecutor(max_workers=24) as executor:
+    with ThreadPoolExecutor(max_workers=max_thread) as executor:
         for i in range(files_count):
             future = executor.submit(
                 download_file,
