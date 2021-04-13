@@ -1,20 +1,28 @@
 import argparse
 import logging
-import requests
 import urllib.request
 from bs4 import BeautifulSoup
 import os
 import pathlib
 import urllib
-import sys
+import urllib3
 import time
 from typing import List, Tuple
 
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 upstream_server_url = 'https://cdn.download.clearlinux.org'
+upstream_server_host = 'cdn.download.clearlinux.org'
+upstream_server_port = 443
 
-_session = requests.Session()
+http = urllib3.HTTPSConnectionPool(
+    host=upstream_server_host,
+    port=upstream_server_port,
+    timeout=10,
+    maxsize=24,
+    retries=3,
+    block=True,
+)
 
 
 def remove_suffix(s: str, suffix: str) -> str:
@@ -30,30 +38,32 @@ def remove_prefix(s: str, prefix: str) -> str:
 
 
 def http_get_content(url: str) -> bytes:
-    response = _session.get(url)
-    if response.status_code != 200:
+    response = http.request(method='GET', url=url)
+    if response.status != 200:
         raise Exception('HTTP status code {}'.format(response.status_code))
-    return response.content
+    return response.data
 
 
 def http_get_text(url: str) -> str:
-    response = _session.get(url)
-    if response.status_code != 200:
-        raise Exception('HTTP status code {}'.format(response.status_code))
-    return response.text
+    data = http_get_content(url)
+    return data.decode(encoding='utf-8', errors='strict')
 
 
 def http_get_int(url: str) -> int:
-    content = http_get_text(url)
-    return int(content)
+    text = http_get_text(url)
+    return int(text)
 
 
 def get_file_list(url: str, target_dir: str, filename: str) -> Tuple[str, str, str]:
     return url, target_dir, filename
 
 
-def get_files_list_recursive(url: str, target_dir: str) -> List[Tuple[str, str, str]]:
+def get_files_list_recursive(
+        url: str,
+        target_dir: str,
+        executor: ThreadPoolExecutor = None) -> List[Tuple[str, str, str]]:
     files_list = []
+    folders_and_destinations_list = []
 
     logging.info('Retrieving file list from folder: ' + url)
 
@@ -83,17 +93,55 @@ def get_files_list_recursive(url: str, target_dir: str) -> List[Tuple[str, str, 
             files_list.append(files_list_item)
         elif link_tail.endswith('/') and link_tail.count('/') == 1:
             # folder
-            files_list_sub = get_files_list_recursive(link, os.path.join(target_dir, remove_suffix(link_tail, '/')))
-            files_list.extend(files_list_sub)
+            folders_and_destinations_list.append(
+                (link, os.path.join(target_dir, remove_suffix(link_tail, '/')))
+            )
         else:
             logging.warning('Warning: ignored unrecognized url: ' + link)
+
+    if executor is None:
+        for (folder_url, destination_dir) in folders_and_destinations_list:
+            files_list_sub = get_files_list_recursive(folder_url, destination_dir)
+            files_list.extend(files_list_sub)
+    else:
+        futures = [
+            executor.submit(get_files_list_recursive, folder_url, destination_dir, executor=executor)
+            for (folder_url, destination_dir) in folders_and_destinations_list]
+
+        for future in as_completed(futures):
+            result = future.result()
+            files_list.extend(result)
 
     return files_list
 
 
-def get_files_list_of_version(version: str, target_dir: str) -> List[Tuple[str, str, str]]:
+def get_files_list_of_version(
+        version: str,
+        target_dir: str,
+        executor: ThreadPoolExecutor = None) -> List[Tuple[str, str, str]]:
     # note: `version` can be either an integer string or the literal string 'version'
-    return get_files_list_recursive(upstream_server_url + '/update/' + version + '/', target_dir)
+    return get_files_list_recursive(upstream_server_url + '/update/' + version + '/', target_dir, executor=executor)
+
+
+def download_file(target_link: Tuple[str, str, str], display_message: str = '') -> None:
+    url, target_dir, filename = target_link
+
+    if len(display_message) != 0:
+        logging.info(display_message)
+
+    if pathlib.Path(target_dir).exists():
+        if pathlib.Path(target_dir).is_dir():
+            pass
+        else:
+            raise Exception(target_dir + ' is supposed to be a directory, not something else.')
+    else:
+        os.makedirs(target_dir)
+
+    with open(os.path.join(target_dir, filename), 'wb') as file:
+        with http.request('GET', url, preload_content=False) as request:
+            for chunk in request.stream(1048576):
+                file.write(chunk)
+            request.release_conn()
 
 
 def download_with_wget(target_link: Tuple[str, str, str], retry_count: int = 3, display_message: str = '') -> bool:
@@ -114,11 +162,12 @@ def download_with_wget(target_link: Tuple[str, str, str], retry_count: int = 3, 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--out', '-o', action='store',
-                        dest='download_dir',
-                        help='the destination directory',
-                        required=True,
-                        type=pathlib.Path)
+    parser.add_argument(
+        '--out', '-o', action='store',
+        dest='download_dir',
+        help='the destination directory',
+        required=True,
+        type=pathlib.Path)
 
     # TODO add number of thread count
     # TODO add retry times
@@ -148,33 +197,45 @@ if __name__ == '__main__':
     time.sleep(3)
 
     files_list = []
-    files_list.extend(
-        get_files_list_of_version(str(0), str(args.download_dir) + '/update/' + str(0) + '/')
-    )
-    files_list.extend(
-        get_files_list_of_version('version', str(args.download_dir) + '/update/version/')
-    )
-    files_list.extend(
-        get_files_list_of_version(str(min_version), str(args.download_dir) + '/update/' + str(min_version) + '/')
-    )
-    files_list.extend(
-        get_files_list_of_version(str(latest_version), str(args.download_dir) + '/update/' + str(latest_version) + '/')
-    )
+
+    with ThreadPoolExecutor(max_workers=24) as executor:
+        files_list.extend(
+            get_files_list_of_version(
+                str(0),
+                str(args.download_dir) + '/update/' + str(0) + '/',
+                executor=executor)
+        )
+        files_list.extend(
+            get_files_list_of_version(
+                'version',
+                str(args.download_dir) + '/update/version/',
+                executor=executor)
+        )
+        files_list.extend(
+            get_files_list_of_version(
+                str(min_version),
+                str(args.download_dir) + '/update/' + str(min_version) + '/',
+                executor=executor)
+        )
+        files_list.extend(
+            get_files_list_of_version(
+                str(latest_version),
+                str(args.download_dir) + '/update/' + str(latest_version) + '/',
+                executor=executor)
+        )
 
     files_count = len(files_list)
     logging.info(str(files_count) + ' files to be downloaded.')
 
     time.sleep(3)
 
-    retry_count = 3
-    worker_count = 42
+    # TODO feature: extract, other than download a file if the corresponding .gz file exists
 
-    with ThreadPoolExecutor(max_workers=worker_count) as executor:
+    with ThreadPoolExecutor(max_workers=24) as executor:
         for i in range(files_count):
             future = executor.submit(
-                download_with_wget,
+                download_file,
                 files_list[i],
-                retry_count=retry_count,
                 display_message='Downloading, {} of {}'.format(i, files_count)
             )
 
