@@ -77,6 +77,8 @@ def get_files_list_recursive(
     soup = BeautifulSoup(content, features="html.parser")
     links = soup.find_all('a')
 
+    # TODO: (less important) parsing large HTML consumes lots of CPU time
+
     for tag in links:
         link = tag.get('href', None)
         if link is None:
