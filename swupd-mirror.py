@@ -8,22 +8,25 @@ import urllib
 import urllib3
 import time
 from typing import List, Tuple
-
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+# TODO make these variables as command line arguments with default values
 upstream_server_url = 'https://cdn.download.clearlinux.org'
 upstream_server_host = 'cdn.download.clearlinux.org'
 upstream_server_port = 443
 
+# TODO make these variables as command line arguments
 chunk_size = 1048576
 max_thread = 24
+retry_count = 3
+http_timeout = 10
 
 http = urllib3.HTTPSConnectionPool(
     host=upstream_server_host,
     port=upstream_server_port,
-    timeout=10,
+    timeout=http_timeout,
     maxsize=max_thread,
-    retries=3,
+    retries=retry_count,
     block=True,
 )
 
@@ -126,7 +129,7 @@ def get_files_list_of_version(
     return get_files_list_recursive(upstream_server_url + '/update/' + version + '/', target_dir, executor=executor)
 
 
-def download_file(target_link: Tuple[str, str, str], display_message: str = '') -> None:
+def download_file(target_link: Tuple[str, str, str], skip_on_exists: bool = True, display_message: str = '') -> None:
     url, target_dir, filename = target_link
 
     if len(display_message) != 0:
@@ -140,11 +143,19 @@ def download_file(target_link: Tuple[str, str, str], display_message: str = '') 
     else:
         os.makedirs(target_dir)
 
-    with open(os.path.join(target_dir, filename), 'wb') as file:
+    file_path = os.path.join(target_dir, filename)
+    file_path_downloading = file_path + '.downloading'
+
+    if pathlib.Path(file_path).exists():
+        if skip_on_exists:
+            return
+
+    with open(file_path_downloading, 'wb') as file:
         with http.request('GET', url, preload_content=False) as request:
             for chunk in request.stream(chunk_size):
                 file.write(chunk)
             request.release_conn()
+    os.replace(src=file_path_downloading, dst=file_path)
 
 
 def download_with_wget(target_link: Tuple[str, str, str], retry_count: int = 3, display_message: str = '') -> bool:
@@ -167,19 +178,29 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '--out', '-o', action='store',
-        dest='dir',
+        dest='download_dir',
         help='the destination directory',
         required=True,
         type=pathlib.Path,
     )
 
-    # TODO add number of thread count
-    # TODO add retry times
-    # TODO add arg upstream server
+    parser.add_argument(
+        '--verbose', '-v', action='store',
+        dest='verbose',
+        help='verbose mode',
+        required=False,
+        default=False,
+        type=bool,
+    )
+
+    # TODO add other parameters
 
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging.DEBUG, format="%(levelname)s: %(message)s")
+    if args.verbose:
+        pass
+    else:
+        logging.basicConfig(level=logging.DEBUG, format="%(levelname)s: %(message)s")
 
     latest_version = http_get_int(upstream_server_url + '/latest')
     logging.info("latest version:" + str(latest_version))
