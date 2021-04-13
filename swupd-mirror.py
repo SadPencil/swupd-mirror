@@ -196,11 +196,10 @@ if __name__ == '__main__':
     # TODO add other parameters
 
     args = parser.parse_args()
-
-    if args.verbose:
-        pass
-    else:
-        logging.basicConfig(level=logging.DEBUG, format="%(levelname)s: %(message)s")
+    logging.basicConfig(
+        level=logging.DEBUG if args.verbose else logging.INFO,
+        format="%(levelname)s: %(message)s",
+    )
 
     latest_version = http_get_int(upstream_server_url + '/latest')
     logging.info("latest version:" + str(latest_version))
