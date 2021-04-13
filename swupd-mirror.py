@@ -1,10 +1,9 @@
 import argparse
 import logging
-import urllib.request
+from urllib.parse import urljoin
 from bs4 import BeautifulSoup
 import os
 import pathlib
-import urllib
 import urllib3
 import time
 from typing import List, Tuple
@@ -26,7 +25,7 @@ http = urllib3.HTTPSConnectionPool(
     port=upstream_server_port,
     timeout=http_timeout,
     maxsize=max_thread,
-    retries=retry_count,
+    retries=urllib3.util.Retry(total=retry_count),
     block=True,
 )
 
@@ -85,7 +84,7 @@ def get_files_list_recursive(
             continue
 
         # possible relative url -> absolute url
-        link = urllib.parse.urljoin(url, link)
+        link = urljoin(url, link)
 
         # no parent
         if not str(link).startswith(url):
@@ -161,22 +160,6 @@ def download_file(target_link: Tuple[str, str, str], skip_on_exists: bool = True
                 file.write(chunk)
             request.release_conn()
     os.replace(src=file_path_downloading, dst=file_path)
-
-
-def download_with_wget(target_link: Tuple[str, str, str], retry_count: int = 3, display_message: str = '') -> bool:
-    if len(display_message) != 0:
-        logging.info(display_message)
-
-    for _ in range(retry_count):
-        # TODO escape the url and the folder path
-        exit_code = os.system(
-            "wget -q --no-cache --limit-rate=2m -t 3 -N --directory-prefix " + str(target_link[1]) + " " + str(
-                target_link[0]))
-        if exit_code == 0:
-            return True
-        else:
-            logging.warning("Warning: failed to download file at: " + target_link[1] + ", retrying...")
-    raise Exception("Failed to download file at: " + target_link[1])
 
 
 if __name__ == '__main__':
